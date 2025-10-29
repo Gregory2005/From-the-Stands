@@ -1,4 +1,3 @@
-// From-the-Stands – Week 6
 const apiKey = "740987a4e6f38838c7f5664d02d298ea";
 const apiBase = "https://v3.football.api-sports.io";
 
