@@ -101,30 +101,45 @@ async function showClubDetails(teamId) {
   modalBody.innerHTML = "<p>Loading fixtures...</p>";
 
   try {
-    const res = await fetch(`${apiBase}/fixtures?team=${teamId}&season=2024&next=5`, {
+    // 1. Try current season dynamically
+    const seasonRes = await fetch(`${apiBase}/leagues`, {
       headers: { "x-apisports-key": apiKey }
     });
-    const data = await res.json();
-    const fixtures = data.response;
+    const seasonData = await seasonRes.json();
+    const currentYear =
+      new Date().getFullYear() >= seasonData.response[0].seasons.at(-1).year
+        ? seasonData.response[0].seasons.at(-1).year
+        : new Date().getFullYear();
 
-    if (fixtures.length === 0) {
-      modalBody.innerHTML = "<p>No upcoming fixtures found.</p>";
+    // 2. Fetch next 5 fixtures
+    const res = await fetch(
+      `${apiBase}/fixtures?team=${teamId}&season=${currentYear}&next=5`,
+      { headers: { "x-apisports-key": apiKey } }
+    );
+    const data = await res.json();
+
+    if (!data.response || data.response.length === 0) {
+      modalBody.innerHTML = "<p>No upcoming fixtures found for this season.</p>";
       return;
     }
 
+    // 3. Render fixtures
+    const listItems = data.response
+      .map(f => {
+        const date = new Date(f.fixture.date).toLocaleDateString();
+        const home = f.teams.home.name;
+        const away = f.teams.away.name;
+        return `<li>${home} vs ${away} – ${date}</li>`;
+      })
+      .join("");
+
     modalBody.innerHTML = `
-      <h2>${fixtures[0].teams.home.name}</h2>
-      <ul>
-        ${fixtures
-          .map(
-            f => `<li>${f.teams.home.name} vs ${f.teams.away.name}
-                   – ${new Date(f.fixture.date).toLocaleDateString()}</li>`
-          )
-          .join("")}
-      </ul>
+      <h2>Next fixtures</h2>
+      <ul>${listItems}</ul>
     `;
   } catch (err) {
-    modalBody.innerHTML = "<p>Error loading fixtures.</p>";
+    console.error(err);
+    modalBody.innerHTML = "<p>Unable to load fixtures.</p>";
   }
 }
 
