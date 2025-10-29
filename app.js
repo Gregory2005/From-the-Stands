@@ -95,27 +95,36 @@ function showFavourites() {
     .catch(() => (statusEl.textContent = "Error loading favourites."));
 }
 
-// ---- Club details modal (Scottish Premiership working version) ----
+// ---- Club details modal (diagnostic + multi-season fallback) ----
 async function showClubDetails(teamId) {
   modal.classList.remove("hidden");
   modalBody.innerHTML = "<p>Loading fixtures...</p>";
 
+  const league = 179; // Scottish Premiership
+  const seasonsToTry = [2025, 2024, 2023]; // try multiple just in case
+
   try {
-    // Scottish Premiership = league 179, current season = 2025
-    const season = 2025;
-    const league = 179;
+    let fixtures = [];
 
-    const url = `${apiBase}/fixtures?league=${league}&team=${teamId}&season=${season}&next=5`;
-    const res = await fetch(url, { headers: { "x-apisports-key": apiKey } });
-    const data = await res.json();
+    for (const season of seasonsToTry) {
+      const url = `${apiBase}/fixtures?league=${league}&team=${teamId}&season=${season}&next=5`;
+      console.log("Fetching:", url);
+      const res = await fetch(url, { headers: { "x-apisports-key": apiKey } });
+      const data = await res.json();
+      console.log("Season", season, "response length:", data.response?.length);
+      if (data.response && data.response.length > 0) {
+        fixtures = data.response;
+        break;
+      }
+    }
 
-    if (!data.response || data.response.length === 0) {
+    if (fixtures.length === 0) {
       modalBody.innerHTML =
-        "<p>No upcoming fixtures returned for this team.</p>";
+        "<p>No upcoming fixtures returned. Check console output.</p>";
       return;
     }
 
-    const listItems = data.response
+    const listItems = fixtures
       .map(f => {
         const date = new Date(f.fixture.date).toLocaleString("en-GB", {
           day: "2-digit",
@@ -135,10 +144,11 @@ async function showClubDetails(teamId) {
       <ul>${listItems}</ul>
     `;
   } catch (err) {
-    console.error(err);
-    modalBody.innerHTML = "<p>Unable to load fixtures (check console).</p>";
+    console.error("Fixture error:", err);
+    modalBody.innerHTML = "<p>Unable to load fixtures (see console).</p>";
   }
 }
+
 
 
 // ---- Location access ----
