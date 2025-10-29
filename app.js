@@ -95,38 +95,35 @@ function showFavourites() {
     .catch(() => (statusEl.textContent = "Error loading favourites."));
 }
 
-// ---- Club details modal ----
+// ---- Club details modal (Scottish Premiership working version) ----
 async function showClubDetails(teamId) {
   modal.classList.remove("hidden");
   modalBody.innerHTML = "<p>Loading fixtures...</p>";
 
   try {
-    // 1. Try current season dynamically
-    const seasonRes = await fetch(`${apiBase}/leagues`, {
-      headers: { "x-apisports-key": apiKey }
-    });
-    const seasonData = await seasonRes.json();
-    const currentYear =
-      new Date().getFullYear() >= seasonData.response[0].seasons.at(-1).year
-        ? seasonData.response[0].seasons.at(-1).year
-        : new Date().getFullYear();
+    // Scottish Premiership = league 179, current season = 2025
+    const season = 2025;
+    const league = 179;
 
-    // 2. Fetch next 5 fixtures
-    const res = await fetch(
-      `${apiBase}/fixtures?team=${teamId}&season=${currentYear}&next=5`,
-      { headers: { "x-apisports-key": apiKey } }
-    );
+    const url = `${apiBase}/fixtures?league=${league}&team=${teamId}&season=${season}&next=5`;
+    const res = await fetch(url, { headers: { "x-apisports-key": apiKey } });
     const data = await res.json();
 
     if (!data.response || data.response.length === 0) {
-      modalBody.innerHTML = "<p>No upcoming fixtures found for this season.</p>";
+      modalBody.innerHTML =
+        "<p>No upcoming fixtures returned for this team.</p>";
       return;
     }
 
-    // 3. Render fixtures
     const listItems = data.response
       .map(f => {
-        const date = new Date(f.fixture.date).toLocaleDateString();
+        const date = new Date(f.fixture.date).toLocaleString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit"
+        });
         const home = f.teams.home.name;
         const away = f.teams.away.name;
         return `<li>${home} vs ${away} – ${date}</li>`;
@@ -134,14 +131,15 @@ async function showClubDetails(teamId) {
       .join("");
 
     modalBody.innerHTML = `
-      <h2>Next fixtures</h2>
+      <h2>Next Fixtures</h2>
       <ul>${listItems}</ul>
     `;
   } catch (err) {
     console.error(err);
-    modalBody.innerHTML = "<p>Unable to load fixtures.</p>";
+    modalBody.innerHTML = "<p>Unable to load fixtures (check console).</p>";
   }
 }
+
 
 // ---- Location access ----
 function getLocation() {
