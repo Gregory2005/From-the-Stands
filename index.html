@@ -15,9 +15,21 @@
   </header>
 
   <main id="app">
-    <button id="locateBtn">Find Clubs Near Me</button>
+    <nav>
+      <button id="locateBtn">Find Clubs Near Me</button>
+      <button id="showFavsBtn">⭐ Favourites</button>
+    </nav>
+
     <p id="status"></p>
     <section id="clubList" class="club-list"></section>
+
+    <!-- Club details modal -->
+    <div id="modal" class="modal hidden">
+      <div class="modal-content">
+        <span id="closeModal" class="close">&times;</span>
+        <div id="modalBody"></div>
+      </div>
+    </div>
   </main>
 
   <footer>
