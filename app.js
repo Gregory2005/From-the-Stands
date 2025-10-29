@@ -1,5 +1,5 @@
 // From-the-Stands core script
-const apiKey = "YOUR_API_KEY"; // replace with API-Football key
+const apiKey = "740987a4e6f38838c7f5664d02d298ea"; 
 const statusEl = document.getElementById("status");
 const clubList = document.getElementById("clubList");
 const locateBtn = document.getElementById("locateBtn");
