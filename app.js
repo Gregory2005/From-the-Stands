@@ -1,11 +1,12 @@
-// From-the-Stands – Dynamic Location (Week 7 update)
+// From-the-Stands – Dynamic Location + Favourites + Fixtures
+// Gregory Campbell | MAB002 | Week 7
 
 // === CONFIG ===
 const apiKey = "740987a4e6f38838c7f5664d02d298ea";
 const apiBase = "https://v3.football.api-sports.io";
 
 // === TEST MODE ===
-// Change to true to spoof London for testing
+// Toggle to true to spoof location as London for demo
 const testMode = true;
 const testCoords = { latitude: 51.5074, longitude: -0.1278 }; // London
 
@@ -24,23 +25,25 @@ function saveFavs() {
   localStorage.setItem("favourites", JSON.stringify(favourites));
 }
 
-// === FETCH CLUBS BY COUNTRY ===
+// === FETCH CLUBS BY COUNTRY (auto-detect) ===
 async function fetchNearbyClubs(lat, lon) {
   statusEl.textContent = "Determining country from location...";
   clubList.innerHTML = "";
 
   try {
-    // Use OpenStreetMap Nominatim to get country name
+    // Reverse-geocode location → country name
     const geoRes = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
     );
     const geoData = await geoRes.json();
-    const country = geoData.address.country;
-    console.log("Detected country:", country);
+    let country = geoData.address.country;
+    console.log("Raw country:", country);
+
+    // Fix: “United Kingdom” → “England” for London coordinates
+    if (country === "United Kingdom") country = "England";
 
     statusEl.textContent = `Fetching clubs in ${country}...`;
 
-    // Query API-Football for teams in that country
     const res = await fetch(`${apiBase}/teams?country=${country}`, {
       headers: { "x-apisports-key": apiKey }
     });
@@ -82,8 +85,11 @@ function renderClubCards(clubs) {
   document.querySelectorAll(".details-btn").forEach(btn =>
     btn.addEventListener("click", e => showClubDetails(e.target.dataset.id))
   );
+
   document.querySelectorAll(".fav-btn").forEach(btn =>
-    btn.addEventListener("click", e => toggleFavourite(e.target.dataset.id, e.target))
+    btn.addEventListener("click", e =>
+      toggleFavourite(e.target.dataset.id, e.target)
+    )
   );
 }
 
@@ -118,13 +124,12 @@ function showFavourites() {
     .catch(() => (statusEl.textContent = "Error loading favourites."));
 }
 
-// === CLUB DETAILS MODAL (demo-safe) ===
+// === CLUB DETAILS MODAL (with safe fallback) ===
 async function showClubDetails(teamId) {
   modal.classList.remove("hidden");
   modalBody.innerHTML = "<p>Loading fixtures...</p>";
 
   try {
-    // Try current season 2025 for all leagues
     const res = await fetch(
       `${apiBase}/fixtures?team=${teamId}&season=2025&next=5`,
       { headers: { "x-apisports-key": apiKey } }
@@ -132,8 +137,8 @@ async function showClubDetails(teamId) {
     const data = await res.json();
     let fixtures = data.response;
 
+    // Fallback to Premier League if none returned
     if (!fixtures || fixtures.length === 0) {
-      // Fallback to Premier League for guaranteed demo
       const fb = await fetch(`${apiBase}/fixtures?league=39&season=2025&next=5`, {
         headers: { "x-apisports-key": apiKey }
       });
@@ -167,9 +172,8 @@ async function showClubDetails(teamId) {
 // === LOCATION HANDLER ===
 function getLocation() {
   if (testMode) {
-    // Spoof location as London
     const { latitude, longitude } = testCoords;
-    console.log("Test Mode: Using hardcoded London coordinates.");
+    console.log("Test Mode: Using hard-coded London coordinates.");
     fetchNearbyClubs(latitude, longitude);
     return;
   }
