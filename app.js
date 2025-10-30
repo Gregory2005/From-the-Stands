@@ -1,6 +1,15 @@
+// From-the-Stands – Dynamic Location (Week 7 update)
+
+// === CONFIG ===
 const apiKey = "740987a4e6f38838c7f5664d02d298ea";
 const apiBase = "https://v3.football.api-sports.io";
 
+// === TEST MODE ===
+// Change to true to spoof London for testing
+const testMode = true;
+const testCoords = { latitude: 51.5074, longitude: -0.1278 }; // London
+
+// === ELEMENTS ===
 const statusEl = document.getElementById("status");
 const clubList = document.getElementById("clubList");
 const locateBtn = document.getElementById("locateBtn");
@@ -9,33 +18,49 @@ const modal = document.getElementById("modal");
 const modalBody = document.getElementById("modalBody");
 const closeModal = document.getElementById("closeModal");
 
-// ---- LocalStorage Favourites ----
+// === FAVOURITES ===
 let favourites = JSON.parse(localStorage.getItem("favourites") || "[]");
 function saveFavs() {
   localStorage.setItem("favourites", JSON.stringify(favourites));
 }
 
-// ---- Fetch clubs ----
+// === FETCH CLUBS BY COUNTRY ===
 async function fetchNearbyClubs(lat, lon) {
-  statusEl.textContent = "Fetching clubs...";
+  statusEl.textContent = "Determining country from location...";
   clubList.innerHTML = "";
 
   try {
-    const res = await fetch(`${apiBase}/teams?country=Scotland`, {
+    // Use OpenStreetMap Nominatim to get country name
+    const geoRes = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`
+    );
+    const geoData = await geoRes.json();
+    const country = geoData.address.country;
+    console.log("Detected country:", country);
+
+    statusEl.textContent = `Fetching clubs in ${country}...`;
+
+    // Query API-Football for teams in that country
+    const res = await fetch(`${apiBase}/teams?country=${country}`, {
       headers: { "x-apisports-key": apiKey }
     });
     const data = await res.json();
-    const clubs = data.response.slice(0, 12);
 
-    statusEl.textContent = `Showing ${clubs.length} clubs.`;
+    if (!data.response || data.response.length === 0) {
+      statusEl.textContent = `No clubs found for ${country}.`;
+      return;
+    }
+
+    const clubs = data.response.slice(0, 12);
+    statusEl.textContent = `Showing ${clubs.length} clubs in ${country}.`;
     renderClubCards(clubs);
   } catch (err) {
     console.error(err);
-    statusEl.textContent = "Error fetching clubs.";
+    statusEl.textContent = "Unable to fetch clubs.";
   }
 }
 
-// ---- Render club cards ----
+// === RENDER CLUB CARDS ===
 function renderClubCards(clubs) {
   clubList.innerHTML = "";
   clubs.forEach(({ team, venue }) => {
@@ -57,13 +82,12 @@ function renderClubCards(clubs) {
   document.querySelectorAll(".details-btn").forEach(btn =>
     btn.addEventListener("click", e => showClubDetails(e.target.dataset.id))
   );
-
   document.querySelectorAll(".fav-btn").forEach(btn =>
     btn.addEventListener("click", e => toggleFavourite(e.target.dataset.id, e.target))
   );
 }
 
-// ---- Favourite toggler ----
+// === TOGGLE FAVOURITES ===
 function toggleFavourite(id, btn) {
   id = Number(id);
   if (favourites.includes(id)) {
@@ -76,7 +100,7 @@ function toggleFavourite(id, btn) {
   saveFavs();
 }
 
-// ---- Show favourites ----
+// === SHOW FAVOURITES ===
 function showFavourites() {
   if (favourites.length === 0) {
     statusEl.textContent = "No favourites saved.";
@@ -94,33 +118,30 @@ function showFavourites() {
     .catch(() => (statusEl.textContent = "Error loading favourites."));
 }
 
-// ---- Club details modal (diagnostic + multi-season fallback) ----
+// === CLUB DETAILS MODAL (demo-safe) ===
 async function showClubDetails(teamId) {
   modal.classList.remove("hidden");
   modalBody.innerHTML = "<p>Loading fixtures...</p>";
 
-  const league = 179; // Scottish Premiership
-  const seasonsToTry = [2025, 2024, 2023]; // try multiple just in case
-
   try {
-    let fixtures = [];
+    // Try current season 2025 for all leagues
+    const res = await fetch(
+      `${apiBase}/fixtures?team=${teamId}&season=2025&next=5`,
+      { headers: { "x-apisports-key": apiKey } }
+    );
+    const data = await res.json();
+    let fixtures = data.response;
 
-    for (const season of seasonsToTry) {
-      const url = `${apiBase}/fixtures?league=${league}&team=${teamId}&season=${season}&next=5`;
-      console.log("Fetching:", url);
-      const res = await fetch(url, { headers: { "x-apisports-key": apiKey } });
-      const data = await res.json();
-      console.log("Season", season, "response length:", data.response?.length);
-      if (data.response && data.response.length > 0) {
-        fixtures = data.response;
-        break;
-      }
-    }
-
-    if (fixtures.length === 0) {
-      modalBody.innerHTML =
-        "<p>No upcoming fixtures returned. Check console output.</p>";
-      return;
+    if (!fixtures || fixtures.length === 0) {
+      // Fallback to Premier League for guaranteed demo
+      const fb = await fetch(`${apiBase}/fixtures?league=39&season=2025&next=5`, {
+        headers: { "x-apisports-key": apiKey }
+      });
+      const fbData = await fb.json();
+      fixtures = fbData.response;
+      modalBody.innerHTML = `<h2>Example Premier League Fixtures</h2>`;
+    } else {
+      modalBody.innerHTML = `<h2>Next Fixtures</h2>`;
     }
 
     const listItems = fixtures
@@ -132,42 +153,51 @@ async function showClubDetails(teamId) {
           hour: "2-digit",
           minute: "2-digit"
         });
-        const home = f.teams.home.name;
-        const away = f.teams.away.name;
-        return `<li>${home} vs ${away} – ${date}</li>`;
+        return `<li>${f.teams.home.name} vs ${f.teams.away.name} – ${date}</li>`;
       })
       .join("");
 
-    modalBody.innerHTML = `
-      <h2>Next Fixtures</h2>
-      <ul>${listItems}</ul>
-    `;
+    modalBody.innerHTML += `<ul>${listItems}</ul>`;
   } catch (err) {
-    console.error("Fixture error:", err);
-    modalBody.innerHTML = "<p>Unable to load fixtures (see console).</p>";
+    console.error(err);
+    modalBody.innerHTML = "<p>Unable to load fixtures.</p>";
   }
 }
 
-
-
-// ---- Location access ----
+// === LOCATION HANDLER ===
 function getLocation() {
+  if (testMode) {
+    // Spoof location as London
+    const { latitude, longitude } = testCoords;
+    console.log("Test Mode: Using hardcoded London coordinates.");
+    fetchNearbyClubs(latitude, longitude);
+    return;
+  }
+
   if ("geolocation" in navigator) {
     statusEl.textContent = "Getting your location...";
     navigator.geolocation.getCurrentPosition(
-      pos => fetchNearbyClubs(pos.coords.latitude, pos.coords.longitude),
+      pos => {
+        const { latitude, longitude } = pos.coords;
+        console.log("Detected location:", latitude, longitude);
+        fetchNearbyClubs(latitude, longitude);
+      },
       () => (statusEl.textContent = "Location access denied.")
     );
-  } else statusEl.textContent = "Geolocation not supported.";
+  } else {
+    statusEl.textContent = "Geolocation not supported.";
+  }
 }
 
-// ---- Event bindings ----
+// === EVENT BINDINGS ===
 locateBtn.addEventListener("click", getLocation);
 showFavsBtn.addEventListener("click", showFavourites);
 closeModal.addEventListener("click", () => modal.classList.add("hidden"));
-modal.addEventListener("click", e => { if (e.target === modal) modal.classList.add("hidden"); });
+modal.addEventListener("click", e => {
+  if (e.target === modal) modal.classList.add("hidden");
+});
 
-// ---- Register SW ----
+// === REGISTER SERVICE WORKER ===
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("service-worker.js");
 }
