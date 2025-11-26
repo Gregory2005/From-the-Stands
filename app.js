@@ -1,7 +1,10 @@
-// From-the-Stands – polished PWA version for deployment
+// From-the-Stands – polished PWA version with Celtic filtering + fake date
 
 const apiKey = "740987a4e6f38838c7f5664d02d298ea";
 const apiBase = "https://v3.football.api-sports.io";
+
+// FAKE TODAY for demo consistency — always behaves like 26 Nov 2025
+const FAKE_TODAY = new Date("2025-11-26T00:00:00Z");
 
 // UI elements
 const statusEl = document.getElementById("status");
@@ -18,20 +21,18 @@ const navHome = document.getElementById("navHome");
 const navFavs = document.getElementById("navFavs");
 const navInfo = document.getElementById("navInfo");
 
-// favourites management
 let favourites = JSON.parse(localStorage.getItem("favourites") || "[]");
-let lastClubCards = []; // for search filtering
+let lastClubCards = [];
 
 function saveFavs() {
   localStorage.setItem("favourites", JSON.stringify(favourites));
 }
 
-// === Status helper ===
 function setStatus(msg) {
   statusEl.textContent = msg;
 }
 
-// === Skeleton loader ===
+// Skeleton loader
 function showSkeletons() {
   clubList.innerHTML = `
     <div class="skeleton"></div>
@@ -40,7 +41,7 @@ function showSkeletons() {
   `;
 }
 
-// === Fetch clubs for a given location ===
+// === Fetch clubs ===
 async function fetchNearbyClubs(lat, lon) {
   setStatus("Determining your country from location…");
   showSkeletons();
@@ -53,7 +54,6 @@ async function fetchNearbyClubs(lat, lon) {
 
     let country = geoData.address?.country || "United Kingdom";
 
-    // API-Football requires England/Scotland/Wales/Northern Ireland separately
     if (country === "United Kingdom") {
       country = "Scotland";
     }
@@ -74,22 +74,22 @@ async function fetchNearbyClubs(lat, lon) {
     const clubs = data.response.slice(0, 12);
     setStatus(`Showing ${clubs.length} clubs in ${country}.`);
     renderClubCards(clubs);
+
   } catch (err) {
     console.error(err);
     setStatus("Unable to fetch clubs. Please try again.");
-    clubList.innerHTML = "";
   }
 }
 
-// === Render cards ===
+// === Render clubs ===
 function renderClubCards(clubs) {
   clubList.innerHTML = "";
   lastClubCards = [];
 
   clubs.forEach(({ team, venue }) => {
+    const card = document.createElement("div");
     const isFav = favourites.includes(team.id);
 
-    const card = document.createElement("div");
     card.className = "club-card";
     card.dataset.teamId = team.id;
 
@@ -97,7 +97,6 @@ function renderClubCards(clubs) {
       <img src="${team.logo}" alt="${team.name}">
       <h3>${team.name}</h3>
       <p>${venue.name}, ${venue.city}</p>
-
       <div class="card-actions">
         <button class="details-btn" data-id="${team.id}">Details</button>
         <button class="fav-btn ${isFav ? "fav-active" : ""}" data-id="${team.id}">
@@ -110,18 +109,15 @@ function renderClubCards(clubs) {
     lastClubCards.push(card);
   });
 
-  // Bind events
-  clubList.querySelectorAll(".details-btn").forEach(btn =>
-    btn.addEventListener("click", e => showClubDetails(e.target.dataset.id))
+  document.querySelectorAll(".details-btn").forEach(btn =>
+    btn.addEventListener("click", e => showClubDetails(Number(e.target.dataset.id)))
   );
-  clubList.querySelectorAll(".fav-btn").forEach(btn =>
-    btn.addEventListener("click", e => toggleFavourite(e.target.dataset.id, e.target))
+  document.querySelectorAll(".fav-btn").forEach(btn =>
+    btn.addEventListener("click", e => toggleFavourite(Number(e.target.dataset.id), e.target))
   );
 }
 
-// === Toggle favourites ===
 function toggleFavourite(id, btn) {
-  id = Number(id);
   if (favourites.includes(id)) {
     favourites = favourites.filter(f => f !== id);
     btn.classList.remove("fav-active");
@@ -132,7 +128,7 @@ function toggleFavourite(id, btn) {
   saveFavs();
 }
 
-// === Show Favourites ===
+// === Show favourites ===
 function showFavourites() {
   if (favourites.length === 0) {
     setStatus("No favourites saved yet.");
@@ -140,7 +136,7 @@ function showFavourites() {
     return;
   }
 
-  setStatus("Loading your favourites…");
+  setStatus("Loading favourites…");
   showSkeletons();
 
   fetch(`${apiBase}/teams?id=${favourites.join("&id=")}`, {
@@ -148,80 +144,97 @@ function showFavourites() {
   })
     .then(res => res.json())
     .then(data => {
-      if (!data.response || data.response.length === 0) {
+      if (!data.response) {
         setStatus("Unable to load favourites.");
-        clubList.innerHTML = "";
         return;
       }
-      setStatus(`Your favourites (${data.response.length}).`);
       renderClubCards(data.response);
+      setStatus(`Your favourites (${data.response.length}).`);
     })
     .catch(err => {
       console.error(err);
       setStatus("Error loading favourites.");
-      clubList.innerHTML = "";
     });
 }
 
+//
+//  ========================
+//  CELTIC FIXTURE HANDLER
+//  ========================
+//
 
-// === Club Details Modal (Improved Fixture Fetch) ===
+async function fetchCelticFixtures() {
+  try {
+    // Fetch entire 2024 season
+    const res = await fetch(
+      `${apiBase}/fixtures?team=255&season=2024`,
+      { headers: { "x-apisports-key": apiKey } }
+    );
+
+    const data = await res.json();
+    let fixtures = data.response || [];
+
+    // Keep only fixtures AFTER fake date
+    fixtures = fixtures.filter(f => {
+      const matchDate = new Date(f.fixture.date);
+      return matchDate >= FAKE_TODAY;
+    });
+
+    fixtures.sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date));
+
+    // If nothing upcoming, get last fixtures instead
+    if (fixtures.length === 0) {
+      const backupRes = await fetch(
+        `${apiBase}/fixtures?team=255&season=2024&last=5`,
+        { headers: { "x-apisports-key": apiKey } }
+      );
+
+      const backupData = await backupRes.json();
+      fixtures = backupData.response || [];
+
+      return {
+        type: "recent",
+        fixtures
+      };
+    }
+
+    return {
+      type: "upcoming",
+      fixtures
+    };
+
+  } catch (err) {
+    console.error("Celtic API Error:", err);
+    return { type: "error", fixtures: [] };
+  }
+}
+
+//
+//  ==============================
+//  SHOW CLUB DETAILS (MAIN MODAL)
+//  ==============================
+//
+
 async function showClubDetails(teamId) {
   modal.classList.remove("hidden");
   modalBody.innerHTML = "<p>Loading fixtures…</p>";
 
-  const seasons = [2024, 2023, 2022];
-  let fixtures = [];
+  //
+  // CELTIC SPECIAL HANDLING (ID = 255)
+  //
+  if (teamId === 255) {
+    const result = await fetchCelticFixtures();
 
-  try {
-    // Try NEXT fixtures for multiple seasons
-    for (const season of seasons) {
-      const res = await fetch(
-        `${apiBase}/fixtures?team=${teamId}&season=${season}&next=5`,
-        { headers: { "x-apisports-key": apiKey } }
-      );
-
-      const data = await res.json();
-
-      if (data.response && data.response.length > 0) {
-        fixtures = data.response;
-        modalBody.innerHTML = `<h2>Upcoming Fixtures (${season})</h2>`;
-        break;
-      }
+    if (result.type === "upcoming") {
+      modalBody.innerHTML = `<h2>Upcoming Fixtures</h2>`;
+    } else if (result.type === "recent") {
+      modalBody.innerHTML = `<h2>Recent Fixtures</h2>`;
+    } else {
+      modalBody.innerHTML = `<p>Unable to load Celtic fixtures.</p>`;
+      return;
     }
 
-    // If no upcoming fixtures found, fetch LAST fixtures
-    if (fixtures.length === 0) {
-      const lastRes = await fetch(
-        `${apiBase}/fixtures?team=${teamId}&season=2024&last=5`,
-        { headers: { "x-apisports-key": apiKey } }
-      );
-
-      const lastData = await lastRes.json();
-
-      if (lastData.response && lastData.response.length > 0) {
-        fixtures = lastData.response;
-        modalBody.innerHTML = `<h2>Recent Fixtures</h2>`;
-      }
-    }
-
-    // Final fallback: example fixtures
-    if (fixtures.length === 0) {
-      fixtures = [
-        {
-          teams: { home: { name: "Arsenal" }, away: { name: "Chelsea" } },
-          fixture: { date: new Date().toISOString() }
-        },
-        {
-          teams: { home: { name: "Liverpool" }, away: { name: "Man City" } },
-          fixture: { date: new Date(Date.now() + 86400000).toISOString() }
-        }
-      ];
-
-      modalBody.innerHTML = `<h2>Example Fixtures</h2>`;
-    }
-
-    // Format list
-    const listItems = fixtures
+    const list = result.fixtures
       .map(f => {
         const date = new Date(f.fixture.date).toLocaleString("en-GB", {
           day: "2-digit",
@@ -231,14 +244,74 @@ async function showClubDetails(teamId) {
           minute: "2-digit"
         });
 
-        const home = f.teams?.home?.name || "Team A";
-        const away = f.teams?.away?.name || "Team B";
-
-        return `<li>${home} vs ${away} – ${date}</li>`;
+        return `<li>${f.teams.home.name} vs ${f.teams.away.name} – ${date}</li>`;
       })
       .join("");
 
-    modalBody.innerHTML += `<ul>${listItems}</ul>`;
+    modalBody.innerHTML += `<ul>${list}</ul>`;
+    return;
+  }
+
+  //
+  // DEFAULT HANDLING FOR ALL OTHER TEAMS
+  //
+
+  const seasons = [2024, 2023, 2022];
+  let fixtures = [];
+
+  try {
+    for (const season of seasons) {
+      const res = await fetch(
+        `${apiBase}/fixtures?team=${teamId}&season=${season}&next=5`,
+        { headers: { "x-apisports-key": apiKey } }
+      );
+
+      const data = await res.json();
+      if (data.response && data.response.length > 0) {
+        fixtures = data.response;
+        modalBody.innerHTML = `<h2>Upcoming Fixtures (${season})</h2>`;
+        break;
+      }
+    }
+
+    if (fixtures.length === 0) {
+      const resLast = await fetch(
+        `${apiBase}/fixtures?team=${teamId}&season=2024&last=5`,
+        { headers: { "x-apisports-key": apiKey }
+      });
+
+      const lastData = await resLast.json();
+      if (lastData.response && lastData.response.length > 0) {
+        fixtures = lastData.response;
+        modalBody.innerHTML = `<h2>Recent Fixtures</h2>`;
+      }
+    }
+
+    if (fixtures.length === 0) {
+      fixtures = [
+        {
+          teams: { home: { name: "Arsenal" }, away: { name: "Chelsea" } },
+          fixture: { date: new Date().toISOString() }
+        }
+      ];
+      modalBody.innerHTML = `<h2>Example Fixtures</h2>`;
+    }
+
+    const list = fixtures
+      .map(f => {
+        const date = new Date(f.fixture.date).toLocaleString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+
+        return `<li>${f.teams.home.name} vs ${f.teams.away.name} – ${date}</li>`;
+      })
+      .join("");
+
+    modalBody.innerHTML += `<ul>${list}</ul>`;
 
   } catch (err) {
     console.error("Fixture modal error:", err);
@@ -247,7 +320,7 @@ async function showClubDetails(teamId) {
 }
 
 
-// === Location handler (with Dundee fallback) ===
+// === Location handler with Dundee fallback ===
 function getLocation() {
   const dundeeLat = 56.4620;
   const dundeeLon = -2.9707;
@@ -264,11 +337,6 @@ function getLocation() {
         console.warn("Location error, using Dundee fallback:", err);
         setStatus("Using Dundee, Scotland as your default location.");
         fetchNearbyClubs(dundeeLat, dundeeLon);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 0
       }
     );
   } else {
@@ -277,16 +345,16 @@ function getLocation() {
   }
 }
 
-// === Search ===
+// Search filter
 function handleSearchInput(e) {
   const term = e.target.value.toLowerCase();
   lastClubCards.forEach(card => {
-    const text = card.innerText.toLowerCase();
-    card.style.display = text.includes(term) ? "block" : "none";
+    card.style.display =
+      card.innerText.toLowerCase().includes(term) ? "block" : "none";
   });
 }
 
-// === Bottom Nav ===
+// Bottom nav
 function setActiveNav(btn) {
   [navHome, navFavs, navInfo].forEach(b => b.classList.remove("nav-btn-active"));
   btn.classList.add("nav-btn-active");
@@ -296,56 +364,48 @@ function showInfo() {
   modal.classList.remove("hidden");
   modalBody.innerHTML = `
     <h2>About From the Stands</h2>
-    <p>This app helps you discover nearby football clubs and fixtures across the UK.</p>
-    <p>Location is used only to detect your nearest clubs.</p>
-    <p>Your favourites are stored on your device only (localStorage).</p>
+    <p>This app helps you discover nearby football clubs and fixtures.</p>
+    <p>Your favourites are stored locally on your device only.</p>
     <p>You can install this app on your home screen like a native app.</p>
   `;
 }
 
-// === Event bindings ===
-
-// Top buttons
+// Event listeners
 locateBtn.addEventListener("click", () => {
   setActiveNav(navHome);
   getLocation();
 });
+
 showFavsBtn.addEventListener("click", () => {
   setActiveNav(navFavs);
   showFavourites();
 });
 
-// Search
 searchInput.addEventListener("input", handleSearchInput);
 
-// Modal
 closeModal.addEventListener("click", () => modal.classList.add("hidden"));
 modal.addEventListener("click", e => {
   if (e.target === modal) modal.classList.add("hidden");
 });
 
-// Bottom nav
 navHome.addEventListener("click", () => {
   setActiveNav(navHome);
   getLocation();
 });
-
 navFavs.addEventListener("click", () => {
   setActiveNav(navFavs);
   showFavourites();
 });
-
 navInfo.addEventListener("click", () => {
   setActiveNav(navInfo);
   showInfo();
 });
 
-// PWA service worker
+// Service worker
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("service-worker.js");
 }
 
-// Initial screen message
 window.addEventListener("load", () => {
   setStatus("Tap 'Find Clubs Near Me' to get started.");
 });
