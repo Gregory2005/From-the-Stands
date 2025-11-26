@@ -1,12 +1,13 @@
 self.addEventListener("install", e => {
   e.waitUntil(
-    caches.open("fromthestands-v1").then(cache => {
+    caches.open("fts-v1").then(cache => {
       return cache.addAll([
         "index.html",
         "style.css",
         "app.js",
         "manifest.json",
-        "assets/icon.png"
+        "assets/icon-192.png",
+        "assets/icon-512.png"
       ]);
     })
   );
