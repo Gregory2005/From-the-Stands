@@ -12,18 +12,28 @@
 <body>
   <header>
     <h1>⚽ From the Stands</h1>
+    <p class="tagline">Discover nearby football clubs across the UK.</p>
   </header>
 
   <main id="app">
-    <nav>
-      <button id="locateBtn">Find Clubs Near Me</button>
-      <button id="showFavsBtn">⭐ Favourites</button>
-    </nav>
+    <section class="top-actions">
+      <button id="locateBtn" class="primary-btn">Find Clubs Near Me</button>
+      <button id="showFavsBtn" class="secondary-btn">⭐ View Favourites</button>
+    </section>
+
+    <input
+      id="searchInput"
+      type="text"
+      placeholder="Search clubs..."
+      class="search-box"
+      autocomplete="off"
+    />
 
     <p id="status"></p>
+
     <section id="clubList" class="club-list"></section>
 
-    <!-- Club details modal -->
+    <!-- Modal -->
     <div id="modal" class="modal hidden">
       <div class="modal-content">
         <span id="closeModal" class="close">&times;</span>
@@ -31,6 +41,12 @@
       </div>
     </div>
   </main>
+
+  <nav class="bottom-nav">
+    <button id="navHome" class="nav-btn nav-btn-active">Home</button>
+    <button id="navFavs" class="nav-btn">⭐ Favourites</button>
+    <button id="navInfo" class="nav-btn">ℹ️ Info</button>
+  </nav>
 
   <footer>
     <p>Data powered by API-Football</p>
