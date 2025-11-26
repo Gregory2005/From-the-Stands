@@ -1,5 +1,6 @@
+/* Base layout */
 body {
-  font-family: "Segoe UI", system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   margin: 0;
   background: #f8f9fa;
   color: #222;
@@ -8,115 +9,229 @@ body {
   min-height: 100vh;
 }
 
-header, footer {
+header {
   background: #004d00;
   color: #fff;
   text-align: center;
-  padding: 1rem;
+  padding: 1rem 1.5rem 0.75rem;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
-nav {
+header h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.tagline {
+  margin: 0.4rem 0 0.2rem;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+main {
+  max-width: 480px;
+  width: 100%;
+  margin: 0 auto;
+  padding-bottom: 4.5rem;
+  flex: 1;
+}
+
+/* Top buttons */
+.top-actions {
   display: flex;
   justify-content: center;
-  gap: 1rem;
-  margin-top: 1rem;
+  gap: 0.6rem;
+  margin-top: 0.7rem;
 }
 
-nav button {
-  padding: 0.6rem 1.2rem;
+.primary-btn,
+.secondary-btn {
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
   border: none;
-  border-radius: 6px;
-  background: #006600;
-  color: #fff;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   cursor: pointer;
 }
 
-#locateBtn:hover, #showFavsBtn:hover {
-  background: #008800;
+.primary-btn {
+  background: #008000;
+  color: #fff;
 }
 
+.primary-btn:hover {
+  background: #009900;
+}
+
+.secondary-btn {
+  background: #ffffff;
+  color: #004d00;
+  border: 1px solid #cdd4db;
+}
+
+.secondary-btn:hover {
+  background: #f0f3f6;
+}
+
+/* Search box */
+.search-box {
+  width: 90%;
+  max-width: 430px;
+  margin: 0.7rem auto 0.4rem;
+  display: block;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.95rem;
+  border-radius: 12px;
+  border: 1px solid #cfd4da;
+}
+
+/* Status text */
 #status {
   text-align: center;
-  margin-top: 0.5rem;
+  margin: 0.35rem 0;
+  font-size: 0.9rem;
+  color: #555;
 }
 
+/* Club list & cards */
 .club-list {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
-  padding: 1rem;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem 1rem;
 }
 
 .club-card {
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-  padding: 1rem;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 0.9rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
   text-align: center;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.club-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
 }
 
 .club-card img {
-  width: 70px;
-  height: 70px;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
   object-fit: contain;
 }
 
-.club-card button {
-  margin-top: 0.4rem;
-  padding: 0.4rem 0.8rem;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
+.card-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
 }
 
 .details-btn {
   background: #007bff;
   color: #fff;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
 }
 
 .fav-btn {
-  background: #ccc;
-  color: #000;
+  background: #eceff1;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
 }
 
 .fav-active {
   background: gold;
-  color: #000;
 }
 
-/* Modal styling */
+/* Skeleton loading */
+.skeleton {
+  height: 120px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, #eee, #ddd, #eee);
+  background-size: 200% 100%;
+  animation: shimmer 1.3s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Modal */
 .modal {
   position: fixed;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   justify-content: center;
   align-items: center;
+  padding: 1rem;
 }
 
 .modal-content {
   background: #fff;
-  border-radius: 10px;
-  width: 90%;
-  max-width: 400px;
-  padding: 1rem;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 430px;
+  padding: 1.3rem;
+  max-height: 90vh;
+  overflow-y: auto;
   position: relative;
-  animation: fadeIn 0.3s ease;
+  animation: fadeInUp 0.28s ease;
 }
 
 .close {
   position: absolute;
   top: 8px;
   right: 12px;
+  cursor: pointer;
   font-size: 1.4rem;
+}
+
+.hidden {
+  display: none;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Bottom nav */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  background: #004d00;
+  display: flex;
+  justify-content: space-around;
+  padding: 0.6rem 0;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.nav-btn {
+  background: none;
+  border: none;
+  color: #c1f0c1;
+  font-size: 0.9rem;
   cursor: pointer;
 }
 
-.hidden { display: none; }
+.nav-btn-active {
+  color: #fff;
+  border-bottom: 2px solid #fff;
+}
 
-@keyframes fadeIn {
-  from {opacity: 0; transform: scale(0.95);}
-  to {opacity: 1; transform: scale(1);}
+/* Footer */
+footer {
+  text-align: center;
+  font-size: 0.75rem;
+  padding: 0.4rem 0 0.7rem;
+  color: #666;
 }
