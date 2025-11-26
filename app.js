@@ -1,4 +1,4 @@
-// API configuration
+// From-the-Stands – polished PWA version for deployment
 
 const apiKey = "740987a4e6f38838c7f5664d02d298ea";
 const apiBase = "https://v3.football.api-sports.io";
@@ -163,32 +163,65 @@ function showFavourites() {
     });
 }
 
-// === Show Club Details Modal ===
+
+// === Club Details Modal (Improved Fixture Fetch) ===
 async function showClubDetails(teamId) {
   modal.classList.remove("hidden");
   modalBody.innerHTML = "<p>Loading fixtures…</p>";
 
-  try {
-    const fixRes = await fetch(
-      `${apiBase}/fixtures?team=${teamId}&next=5`,
-      { headers: { "x-apisports-key": apiKey } }
-    );
-    const fixData = await fixRes.json();
-    let fixtures = fixData.response;
+  const seasons = [2024, 2023, 2022];
+  let fixtures = [];
 
-    if (!fixtures || fixtures.length === 0) {
+  try {
+    // Try NEXT fixtures for multiple seasons
+    for (const season of seasons) {
+      const res = await fetch(
+        `${apiBase}/fixtures?team=${teamId}&season=${season}&next=5`,
+        { headers: { "x-apisports-key": apiKey } }
+      );
+
+      const data = await res.json();
+
+      if (data.response && data.response.length > 0) {
+        fixtures = data.response;
+        modalBody.innerHTML = `<h2>Upcoming Fixtures (${season})</h2>`;
+        break;
+      }
+    }
+
+    // If no upcoming fixtures found, fetch LAST fixtures
+    if (fixtures.length === 0) {
+      const lastRes = await fetch(
+        `${apiBase}/fixtures?team=${teamId}&season=2024&last=5`,
+        { headers: { "x-apisports-key": apiKey } }
+      );
+
+      const lastData = await lastRes.json();
+
+      if (lastData.response && lastData.response.length > 0) {
+        fixtures = lastData.response;
+        modalBody.innerHTML = `<h2>Recent Fixtures</h2>`;
+      }
+    }
+
+    // Final fallback: example fixtures
+    if (fixtures.length === 0) {
       fixtures = [
         {
           teams: { home: { name: "Arsenal" }, away: { name: "Chelsea" } },
           fixture: { date: new Date().toISOString() }
+        },
+        {
+          teams: { home: { name: "Liverpool" }, away: { name: "Man City" } },
+          fixture: { date: new Date(Date.now() + 86400000).toISOString() }
         }
       ];
+
       modalBody.innerHTML = `<h2>Example Fixtures</h2>`;
-    } else {
-      modalBody.innerHTML = `<h2>Upcoming Fixtures</h2>`;
     }
 
-    const list = fixtures
+    // Format list
+    const listItems = fixtures
       .map(f => {
         const date = new Date(f.fixture.date).toLocaleString("en-GB", {
           day: "2-digit",
@@ -198,16 +231,21 @@ async function showClubDetails(teamId) {
           minute: "2-digit"
         });
 
-        return `<li>${f.teams.home.name} vs ${f.teams.away.name} – ${date}</li>`;
+        const home = f.teams?.home?.name || "Team A";
+        const away = f.teams?.away?.name || "Team B";
+
+        return `<li>${home} vs ${away} – ${date}</li>`;
       })
       .join("");
 
-    modalBody.innerHTML += `<ul>${list}</ul>`;
+    modalBody.innerHTML += `<ul>${listItems}</ul>`;
+
   } catch (err) {
-    console.error(err);
+    console.error("Fixture modal error:", err);
     modalBody.innerHTML = "<p>Unable to load fixtures.</p>";
   }
 }
+
 
 // === Location handler (with Dundee fallback) ===
 function getLocation() {
